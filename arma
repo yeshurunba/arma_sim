@@ -1,0 +1,57 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from scipy.stats import ttest_ind
+
+# Load your data
+file_path = 'C:/fi/301210_041223_TLV.csv'  # Replace with your actual file path
+ta35_data = pd.read_csv(file_path)
+
+# Convert the 'date' column to datetime format and set it as index
+ta35_data['date'] = pd.to_datetime(ta35_data['date'], dayfirst=True)
+ta35_data.set_index('date', inplace=True)
+
+# Attempt to infer the frequency
+ta35_data.index.freq = pd.infer_freq(ta35_data.index)
+
+# If your data is daily, assign 'D' for daily frequency
+# Adjust this if your data has a different frequency
+#ta35_data.index.freq = 'D'
+
+# Calculate daily returns
+ta35_data['daily_return'] = ta35_data['locking'].pct_change() * 100
+ta35_data.dropna(subset=['daily_return'], inplace=True)  # Drop rows with NaN values
+
+# Fit the ARIMA model (adjust p, d, q as needed)
+p, d, q = 4, 0, 4  # Example values for ARIMA(p,d,q)
+model_arma = ARIMA(ta35_data['daily_return'], order=(p, d, q))
+results_arma = model_arma.fit()
+
+# Store the ARIMA predictions
+ta35_data['arma_pred'] = results_arma.predict(start=0, end=len(ta35_data)-1)
+
+# Buy and Hold Strategy
+initial_investment = 100
+cumulative_return_bh = (ta35_data['daily_return'] / 100 + 1).cumprod()
+
+# ARIMA Model-Based Strategy
+arma_signals = np.where(ta35_data['arma_pred'] > 0, 1, -1)
+daily_return_arma = ta35_data['daily_return'] * arma_signals
+cumulative_return_arma = (daily_return_arma / 100 + 1).cumprod()
+
+# Conducting a t-test to compare the returns of the two strategies
+t_stat, p_value = ttest_ind(cumulative_return_bh, cumulative_return_arma)
+print("T-statistic:", t_stat)
+print("P-value:", p_value)
+
+# Plotting the development of profits
+plt.figure(figsize=(15, 8))
+plt.plot(ta35_data.index, initial_investment * cumulative_return_bh, label='Buy and Hold Strategy', alpha=0.7)
+plt.plot(ta35_data.index, initial_investment * cumulative_return_arma, label='ARIMA Model-Based Strategy', alpha=0.7)
+plt.title('Comparison of Investment Strategies: Buy and Hold vs ARIMA Model-Based')
+plt.xlabel('Date')
+plt.ylabel('Investment Value (NIS)')
+plt.legend()
+plt.grid(True)
+plt.show()
