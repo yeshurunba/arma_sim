@@ -1,5 +1,6 @@
-# arma_sim
-# Hello world !
+# ARMA simulator 
+in order to run this code do this 
 
-# new title 
-# asdf asf 
+``` sh
+python3 main.py
+```
